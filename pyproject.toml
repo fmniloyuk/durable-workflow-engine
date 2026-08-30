@@ -76,6 +76,14 @@ plugins = []
 module = ["app.engine"]
 disable_error_code = ["no-any-return", "attr-defined"]
 
+# redis-py's StreamCommands/Lua overloads are narrower than the values Redis
+# accepts at runtime (for example numeric ARGV values and xadd field maps).
+# The queue adapter is covered by integration + destructive Compose tests;
+# keep these exceptions local rather than weakening strict mode globally.
+[[tool.mypy.overrides]]
+module = ["app.queue"]
+disable_error_code = ["arg-type", "misc"]
+
 [[tool.mypy.overrides]]
 module = ["opentelemetry.*", "prometheus_client.*"]
 ignore_missing_imports = true
