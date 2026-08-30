@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "durable-workflow-engine"
+version = "0.1.0"
+description = "A small durable workflow orchestration engine for distributed-systems education"
+requires-python = ">=3.13"
+license = {text = "MIT"}
+authors = [{name = "durable-workflow-engine contributors"}]
+dependencies = [
+  "fastapi>=0.116,<1",
+  "uvicorn[standard]>=0.35,<1",
+  "sqlalchemy[asyncio]>=2.0.43,<3",
+  "asyncpg>=0.30,<1",
+  "alembic>=1.16,<2",
+  "redis[hiredis]>=6.4,<7",
+  "pydantic-settings>=2.10,<3",
+  "prometheus-client>=0.22,<1",
+  "opentelemetry-api>=1.36,<2",
+  "opentelemetry-sdk>=1.36,<2",
+  "opentelemetry-exporter-otlp-proto-grpc>=1.36,<2",
+  "opentelemetry-instrumentation-fastapi>=0.57b0,<1",
+  "opentelemetry-instrumentation-sqlalchemy>=0.57b0,<1",
+  "opentelemetry-instrumentation-redis>=0.57b0,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "hypothesis>=6.138,<7",
+  "httpx>=0.28,<1",
+  "ruff>=0.12,<1",
+  "mypy>=1.17,<2",
+  "types-redis>=4.6.0.20241004",
+]
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+asyncio_mode = "auto"
+markers = [
+  "integration: requires PostgreSQL and Redis",
+  "chaos: recovery/chaos model tests",
+  "property: property-based tests",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+exclude = ["backend/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "SIM"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+packages = ["app"]
+mypy_path = "backend"
+plugins = []
+
+[[tool.mypy.overrides]]
+module = ["redis.*", "opentelemetry.*", "prometheus_client.*"]
+ignore_missing_imports = true
