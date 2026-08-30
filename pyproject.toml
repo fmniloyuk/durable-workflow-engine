@@ -34,7 +34,6 @@ dev = [
   "httpx>=0.28,<1",
   "ruff>=0.12,<1",
   "mypy>=1.17,<2",
-  "types-redis>=4.6.0.20241004",
 ]
 
 [tool.setuptools.packages.find]
@@ -70,6 +69,13 @@ packages = ["app"]
 mypy_path = "backend"
 plugins = []
 
+# SQLAlchemy's async execute() is typed as Result even for DML although the
+# runtime object exposes CursorResult.rowcount. Keep strict mode everywhere
+# else instead of weakening the whole project for these adapter boundaries.
 [[tool.mypy.overrides]]
-module = ["redis.*", "opentelemetry.*", "prometheus_client.*"]
+module = ["app.engine"]
+disable_error_code = ["no-any-return", "attr-defined"]
+
+[[tool.mypy.overrides]]
+module = ["opentelemetry.*", "prometheus_client.*"]
 ignore_missing_imports = true
