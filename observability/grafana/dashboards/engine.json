@@ -1,0 +1,22 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {"type":"timeseries","title":"Queue depth","gridPos":{"h":8,"w":12,"x":0,"y":0},"targets":[{"expr":"sum by (queue) (dwe_queue_depth)","legendFormat":"{{queue}}"}]},
+    {"type":"timeseries","title":"Task outcomes / sec","gridPos":{"h":8,"w":12,"x":12,"y":0},"targets":[{"expr":"sum by (outcome) (rate(dwe_task_outcomes_total[5m]))","legendFormat":"{{outcome}}"}]},
+    {"type":"timeseries","title":"Retry rate","gridPos":{"h":8,"w":8,"x":0,"y":8},"targets":[{"expr":"sum by (queue) (rate(dwe_task_retries_total[5m]))","legendFormat":"{{queue}}"}]},
+    {"type":"timeseries","title":"Worker utilization","gridPos":{"h":8,"w":8,"x":8,"y":8},"targets":[{"expr":"dwe_worker_utilization_ratio","legendFormat":"{{worker}}"}]},
+    {"type":"stat","title":"Dead-letter tasks","gridPos":{"h":8,"w":8,"x":16,"y":8},"targets":[{"expr":"dwe_dead_letter_tasks"}]},
+    {"type":"timeseries","title":"Task latency p95","gridPos":{"h":8,"w":24,"x":0,"y":16},"targets":[{"expr":"histogram_quantile(0.95, sum by (le, queue) (rate(dwe_task_latency_seconds_bucket[5m])))","legendFormat":"{{queue}}"}]}
+  ],
+  "refresh": "5s",
+  "schemaVersion": 41,
+  "tags": ["workflow", "distributed-systems"],
+  "templating": {"list": []},
+  "time": {"from": "now-30m", "to": "now"},
+  "timezone": "browser",
+  "title": "Durable Workflow Engine",
+  "uid": "dwe-overview",
+  "version": 1
+}

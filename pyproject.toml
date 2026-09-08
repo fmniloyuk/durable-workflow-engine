@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "durable-workflow-engine"
+version = "0.1.0"
+description = "A small durable workflow orchestration engine for distributed-systems education"
+requires-python = ">=3.13"
+license = {text = "MIT"}
+authors = [{name = "durable-workflow-engine contributors"}]
+dependencies = [
+  "fastapi>=0.116,<1",
+  "uvicorn[standard]>=0.35,<1",
+  "sqlalchemy[asyncio]>=2.0.43,<3",
+  "asyncpg>=0.30,<1",
+  "alembic>=1.16,<2",
+  "redis[hiredis]>=6.4,<7",
+  "pydantic-settings>=2.10,<3",
+  "prometheus-client>=0.22,<1",
+  "opentelemetry-api>=1.36,<2",
+  "opentelemetry-sdk>=1.36,<2",
+  "opentelemetry-exporter-otlp-proto-grpc>=1.36,<2",
+  "opentelemetry-instrumentation-fastapi>=0.57b0,<1",
+  "opentelemetry-instrumentation-sqlalchemy>=0.57b0,<1",
+  "opentelemetry-instrumentation-redis>=0.57b0,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "hypothesis>=6.138,<7",
+  "httpx>=0.28,<1",
+  "ruff>=0.12,<1",
+  "mypy>=1.17,<2",
+]
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+  "integration: requires PostgreSQL and Redis",
+  "chaos: recovery/chaos model tests",
+  "property: property-based tests",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+exclude = ["backend/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "UP", "B", "ASYNC"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/app/engine.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+packages = ["app"]
+mypy_path = "backend"
+plugins = []
+
+# SQLAlchemy's async execute() is typed as Result even for DML although the
+# runtime object exposes CursorResult.rowcount. Keep strict mode everywhere
+# else instead of weakening the whole project for these adapter boundaries.
+[[tool.mypy.overrides]]
+module = ["app.engine"]
+disable_error_code = ["no-any-return", "attr-defined"]
+
+# redis-py's StreamCommands/Lua overloads are narrower than the values Redis
+# accepts at runtime (for example numeric ARGV values and xadd field maps).
+# The queue adapter is covered by integration + destructive Compose tests;
+# keep these exceptions local rather than weakening strict mode globally.
+[[tool.mypy.overrides]]
+module = ["app.queue"]
+disable_error_code = ["arg-type", "misc"]
+
+[[tool.mypy.overrides]]
+module = ["opentelemetry.*", "prometheus_client.*"]
+ignore_missing_imports = true
