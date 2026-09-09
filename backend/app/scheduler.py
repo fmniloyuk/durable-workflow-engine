@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import UTC, datetime
 
 from prometheus_client import start_http_server
@@ -13,10 +14,18 @@ from app.engine import (
     release_due_tasks,
     republish_orphaned_queued,
 )
-from app.metrics import DEAD_LETTER_COUNT, OUTBOX_PUBLISHED, QUEUE_DEPTH
+from app.metrics import (
+    DEAD_LETTER_COUNT,
+    OUTBOX_PUBLISHED,
+    OUTBOX_PUBLISH_FAILURES,
+    QUEUE_DEPTH,
+    SCHEDULER_FAILURES,
+)
 from app.models import OutboxEvent, Task, TaskState
 from app.queue import RedisTransport
 from app.telemetry import configure_telemetry, tracer
+
+logger = logging.getLogger(__name__)
 
 
 class OutboxPublisher:
@@ -58,6 +67,14 @@ class OutboxPublisher:
                     OUTBOX_PUBLISHED.labels(event_type=event.event_type).inc()
                     published += 1
                 except Exception:
+                    OUTBOX_PUBLISH_FAILURES.labels(event_type=event.event_type).inc()
+                    logger.exception(
+                        "outbox publish failed",
+                        extra={
+                            "outbox_event_id": str(event.id),
+                            "outbox_event_type": event.event_type,
+                        },
+                    )
                     # Keep the row unpublished. A later pass retries it. If Redis accepted
                     # the event but the DB commit is lost, this intentionally republishes.
                     continue
@@ -115,9 +132,8 @@ async def run_scheduler() -> None:
                     )
                 await update_metrics(redis)
             except Exception:
-                # Infrastructure outages are retried by the outer durable loop.
-                # No in-memory state is required for correctness.
-                pass
+                SCHEDULER_FAILURES.labels(operation="iteration").inc()
+                logger.exception("scheduler iteration failed")
             await asyncio.sleep(settings.scheduler_poll_seconds)
     finally:
         await redis.aclose()

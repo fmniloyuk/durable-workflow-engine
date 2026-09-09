@@ -31,3 +31,9 @@ POISON_MESSAGES = Counter(
 OUTBOX_PUBLISHED = Counter(
     "dwe_outbox_published_total", "Outbox events successfully published", ["event_type"]
 )
+OUTBOX_PUBLISH_FAILURES = Counter(
+    "dwe_outbox_publish_failures_total", "Outbox event publication failures", ["event_type"]
+)
+SCHEDULER_FAILURES = Counter(
+    "dwe_scheduler_failures_total", "Scheduler iteration failures", ["operation"]
+)
