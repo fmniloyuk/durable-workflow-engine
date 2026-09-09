@@ -34,6 +34,7 @@ dev = [
   "httpx>=0.28,<1",
   "ruff>=0.12,<1",
   "mypy>=1.17,<2",
+  "pip-audit>=2.9,<3",
 ]
 
 [tool.setuptools.packages.find]
