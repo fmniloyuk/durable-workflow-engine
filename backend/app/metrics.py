@@ -18,6 +18,9 @@ RETRIES = Counter("dwe_task_retries_total", "Task retries scheduled", ["queue"])
 WORKER_UTILIZATION = Gauge(
     "dwe_worker_utilization_ratio", "Fraction of worker slots currently occupied", ["worker"]
 )
+WORKER_HEARTBEAT_FAILURES = Counter(
+    "dwe_worker_heartbeat_failures_total", "Worker heartbeat persistence failures", ["worker"]
+)
 DEAD_LETTER_COUNT = Gauge("dwe_dead_letter_tasks", "Durable tasks currently dead-lettered")
 POISON_MESSAGES = Counter(
     "dwe_poison_messages_total", "Malformed or unprocessable queue messages", ["queue"]

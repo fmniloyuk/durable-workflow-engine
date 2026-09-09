@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import signal
 import socket
@@ -21,12 +22,19 @@ from app.engine import (
     renew_lease,
     set_worker_draining,
 )
-from app.metrics import RETRIES, TASK_LATENCY, TASK_OUTCOMES, WORKER_UTILIZATION
+from app.metrics import (
+    RETRIES,
+    TASK_LATENCY,
+    TASK_OUTCOMES,
+    WORKER_HEARTBEAT_FAILURES,
+    WORKER_UTILIZATION,
+)
 from app.models import Task, TaskState
 from app.queue import QueueGuards, QueueMessage, RedisTransport
 from app.telemetry import configure_telemetry, tracer
 
 TaskHandler = Callable[[Task], Awaitable[dict[str, Any]]]
+logger = logging.getLogger(__name__)
 
 
 async def noop_handler(task: Task) -> dict[str, Any]:
@@ -70,8 +78,20 @@ class WorkerRuntime:
 
     async def heartbeat_loop(self) -> None:
         while not self.stop.is_set():
-            async with SessionLocal() as session:
-                await heartbeat_worker(session, self.worker_id)
+            try:
+                async with SessionLocal() as session:
+                    await heartbeat_worker(session, self.worker_id)
+            except Exception:
+                WORKER_HEARTBEAT_FAILURES.labels(worker=self.worker_id).inc()
+                logger.exception("worker heartbeat failed", extra={"worker_id": self.worker_id})
+                try:
+                    await asyncio.wait_for(
+                        self.stop.wait(),
+                        timeout=min(5.0, max(1.0, self.settings.heartbeat_seconds / 2)),
+                    )
+                except TimeoutError:
+                    pass
+                continue
             try:
                 await asyncio.wait_for(self.stop.wait(), timeout=self.settings.heartbeat_seconds)
             except TimeoutError:
