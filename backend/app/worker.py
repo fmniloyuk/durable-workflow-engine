@@ -27,6 +27,7 @@ from app.metrics import (
     TASK_LATENCY,
     TASK_OUTCOMES,
     WORKER_HEARTBEAT_FAILURES,
+    WORKER_PROCESS_FAILURES,
     WORKER_UTILIZATION,
 )
 from app.models import Task, TaskState
@@ -75,6 +76,20 @@ class WorkerRuntime:
         self.semaphore = asyncio.Semaphore(self.settings.worker_concurrency)
         self.active = 0
         self.running: set[asyncio.Task[None]] = set()
+
+    def _on_process_done(self, task: asyncio.Task[None]) -> None:
+        self.running.discard(task)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is None:
+            return
+        WORKER_PROCESS_FAILURES.labels(worker=self.worker_id).inc()
+        logger.error(
+            "worker message processing failed",
+            extra={"worker_id": self.worker_id},
+            exc_info=(type(exc), exc, exc.__traceback__),
+        )
 
     async def heartbeat_loop(self) -> None:
         while not self.stop.is_set():
@@ -231,7 +246,7 @@ class WorkerRuntime:
                 for message in messages:
                     task = asyncio.create_task(self.process_message(message))
                     self.running.add(task)
-                    task.add_done_callback(self.running.discard)
+                    task.add_done_callback(self._on_process_done)
         finally:
             self.stop.set()
             async with SessionLocal() as session:

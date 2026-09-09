@@ -21,6 +21,9 @@ WORKER_UTILIZATION = Gauge(
 WORKER_HEARTBEAT_FAILURES = Counter(
     "dwe_worker_heartbeat_failures_total", "Worker heartbeat persistence failures", ["worker"]
 )
+WORKER_PROCESS_FAILURES = Counter(
+    "dwe_worker_process_failures_total", "Unhandled worker message processing failures", ["worker"]
+)
 DEAD_LETTER_COUNT = Gauge("dwe_dead_letter_tasks", "Durable tasks currently dead-lettered")
 POISON_MESSAGES = Counter(
     "dwe_poison_messages_total", "Malformed or unprocessable queue messages", ["queue"]
