@@ -71,7 +71,67 @@ class RedisTransport:
             {key: str(value) for key, value in payload.items()},
         )
 
+    async def _decode_entries(
+        self, stream: str, entries: list[tuple[str, dict[str, str]]]
+    ) -> list[QueueMessage]:
+        messages: list[QueueMessage] = []
+        for message_id, fields in entries:
+            try:
+                task_id = fields["task_id"]
+                workflow_id = fields["workflow_id"]
+                queue = fields["queue"]
+            except KeyError as exc:
+                await self.publish_poison(
+                    source_stream=stream, fields=fields, error=f"missing field {exc}"
+                )
+                await self.redis.xack(stream, CONSUMER_GROUP, message_id)
+                continue
+            messages.append(
+                QueueMessage(
+                    stream=stream,
+                    message_id=str(message_id),
+                    task_id=str(task_id),
+                    workflow_id=str(workflow_id),
+                    queue=str(queue),
+                    headers={
+                        "traceparent": str(fields.get("traceparent", "")),
+                        "tracestate": str(fields.get("tracestate", "")),
+                    },
+                )
+            )
+        return messages
+
+    async def reclaim_stale(
+        self, queues: list[str], worker_id: str, *, count: int = 10
+    ) -> list[QueueMessage]:
+        min_idle_ms = max(
+            self.settings.lease_seconds,
+            self.settings.heartbeat_seconds * 3,
+        ) * 1000
+        messages: list[QueueMessage] = []
+        for queue in queues:
+            for partition in range(self.settings.queue_partitions):
+                remaining = count - len(messages)
+                if remaining <= 0:
+                    return messages
+                stream = self.stream_name(queue, partition)
+                result = await self.redis.xautoclaim(
+                    stream,
+                    CONSUMER_GROUP,
+                    worker_id,
+                    min_idle_ms,
+                    start_id="0-0",
+                    count=remaining,
+                )
+                entries = result[1] if len(result) > 1 else []
+                messages.extend(await self._decode_entries(stream, entries))
+        return messages
+
     async def read(self, queues: list[str], worker_id: str, *, count: int = 10) -> list[QueueMessage]:
+        reclaimed = await self.reclaim_stale(queues, worker_id, count=count)
+        if reclaimed:
+            return reclaimed
+
         streams = {
             self.stream_name(queue, partition): ">"
             for queue in queues
@@ -86,30 +146,7 @@ class RedisTransport:
         )
         messages: list[QueueMessage] = []
         for stream, entries in response:
-            for message_id, fields in entries:
-                try:
-                    task_id = fields["task_id"]
-                    workflow_id = fields["workflow_id"]
-                    queue = fields["queue"]
-                except KeyError as exc:
-                    await self.publish_poison(
-                        source_stream=str(stream), fields=fields, error=f"missing field {exc}"
-                    )
-                    await self.redis.xack(stream, CONSUMER_GROUP, message_id)
-                    continue
-                messages.append(
-                    QueueMessage(
-                        stream=str(stream),
-                        message_id=str(message_id),
-                        task_id=str(task_id),
-                        workflow_id=str(workflow_id),
-                        queue=str(queue),
-                        headers={
-                            "traceparent": str(fields.get("traceparent", "")),
-                            "tracestate": str(fields.get("tracestate", "")),
-                        },
-                    )
-                )
+            messages.extend(await self._decode_entries(str(stream), entries))
         return messages
 
     async def ack(self, message: QueueMessage) -> None:
