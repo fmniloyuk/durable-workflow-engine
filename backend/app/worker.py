@@ -79,7 +79,7 @@ class WorkerRuntime:
         self, task: Task, done: asyncio.Event, lease_lost: asyncio.Event
     ) -> None:
         interval = max(1.0, self.settings.heartbeat_seconds / 2)
-        while not done.is_set() and not self.stop.is_set():
+        while not done.is_set():
             try:
                 await asyncio.wait_for(done.wait(), timeout=interval)
                 break
