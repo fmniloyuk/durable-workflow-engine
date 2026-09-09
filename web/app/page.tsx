@@ -83,19 +83,24 @@ export default function Page() {
   }, [selected]);
 
   useEffect(() => {
-    if (!selected) return;
+    if (!selected) { setDetail(null); return; }
+    setDetail(null);
     let active = true;
+    const controller = new AbortController();
     const refresh = async () => {
       try {
-        const response = await fetch(`${API}/v1/workflows/${selected}`);
+        const response = await fetch(`${API}/v1/workflows/${selected}`, { signal: controller.signal });
         if (!response.ok) throw new Error('Workflow request failed');
         const data = await response.json() as WorkflowDetail;
-        if (active) setDetail(data);
-      } catch (e) { if (active) setError(e instanceof Error ? e.message : 'Unknown error'); }
+        if (active && data.id === selected) setDetail(data);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        if (active) setError(e instanceof Error ? e.message : 'Unknown error');
+      }
     };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 1500);
-    return () => { active = false; window.clearInterval(timer); };
+    return () => { active = false; controller.abort(); window.clearInterval(timer); };
   }, [selected]);
 
   const counts = useMemo(() => {
