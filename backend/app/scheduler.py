@@ -19,6 +19,7 @@ from app.metrics import (
     OUTBOX_PUBLISHED,
     OUTBOX_PUBLISH_FAILURES,
     QUEUE_DEPTH,
+    QUEUE_METRICS_UP,
     SCHEDULER_FAILURES,
 )
 from app.models import OutboxEvent, Task, TaskState
@@ -88,15 +89,21 @@ async def update_metrics(redis: Redis) -> None:
     for queue in settings.queues:
         for partition in range(settings.queue_partitions):
             stream = transport.stream_name(queue, partition)
-            depth = 0
             try:
                 groups = await redis.xinfo_groups(stream)
+                depth = 0
                 for group in groups:
                     if group.get("name") == "dwe-workers":
                         depth = int(group.get("pending", 0)) + int(group.get("lag") or 0)
                         break
             except Exception:
-                depth = 0
+                QUEUE_METRICS_UP.labels(queue=queue, partition=str(partition)).set(0)
+                logger.exception(
+                    "queue depth metrics unavailable",
+                    extra={"queue": queue, "partition": partition},
+                )
+                continue
+            QUEUE_METRICS_UP.labels(queue=queue, partition=str(partition)).set(1)
             QUEUE_DEPTH.labels(queue=queue, partition=str(partition)).set(depth)
 
     async with SessionLocal() as session:

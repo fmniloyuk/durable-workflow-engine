@@ -5,6 +5,11 @@ QUEUE_DEPTH = Gauge(
     "Approximate Redis Stream depth by queue and partition",
     ["queue", "partition"],
 )
+QUEUE_METRICS_UP = Gauge(
+    "dwe_queue_metrics_up",
+    "Whether Redis queue depth metrics were readable",
+    ["queue", "partition"],
+)
 TASK_LATENCY = Histogram(
     "dwe_task_latency_seconds",
     "Task execution latency",
