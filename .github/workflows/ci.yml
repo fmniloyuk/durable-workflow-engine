@@ -86,6 +86,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package.json
       - run: npm install
+      - name: Dump generated lockfile
+        run: cat package-lock.json
       - name: Type check
         run: npm run lint
       - name: Build
