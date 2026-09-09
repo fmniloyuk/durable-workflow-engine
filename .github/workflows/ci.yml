@@ -32,6 +32,8 @@ jobs:
         run: pytest -q -m property backend/tests/property
       - name: Recovery model tests
         run: pytest -q -m chaos backend/tests/chaos
+      - name: Coverage measurement
+        run: pytest -q --cov=app --cov-branch --cov-report=term backend/tests/unit backend/tests/property backend/tests/chaos
 
   integration:
     runs-on: ubuntu-latest
