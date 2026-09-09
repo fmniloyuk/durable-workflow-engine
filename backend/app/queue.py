@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -83,6 +84,15 @@ class RedisTransport:
             except KeyError as exc:
                 await self.publish_poison(
                     source_stream=stream, fields=fields, error=f"missing field {exc}"
+                )
+                await self.redis.xack(stream, CONSUMER_GROUP, message_id)
+                continue
+            try:
+                uuid.UUID(str(task_id))
+                uuid.UUID(str(workflow_id))
+            except ValueError as exc:
+                await self.publish_poison(
+                    source_stream=stream, fields=fields, error=f"invalid UUID field: {exc}"
                 )
                 await self.redis.xack(stream, CONSUMER_GROUP, message_id)
                 continue
