@@ -165,11 +165,12 @@ class RedisTransport:
 
 _TOKEN_BUCKET_LUA = """
 local key = KEYS[1]
-local now = tonumber(ARGV[1])
-local rate = tonumber(ARGV[2])
-local capacity = tonumber(ARGV[3])
-local requested = tonumber(ARGV[4])
-local ttl_ms = tonumber(ARGV[5])
+local server_time = redis.call('TIME')
+local now = tonumber(server_time[1]) + tonumber(server_time[2]) / 1000000
+local rate = tonumber(ARGV[1])
+local capacity = tonumber(ARGV[2])
+local requested = tonumber(ARGV[3])
+local ttl_ms = tonumber(ARGV[4])
 local values = redis.call('HMGET', key, 'tokens', 'updated')
 local tokens = tonumber(values[1])
 local updated = tonumber(values[2])
@@ -213,12 +214,10 @@ class QueueGuards:
         rate = self.settings.queue_rate_per_second
         capacity = max(1.0, rate)
         while True:
-            now = time.time()
             allowed = await self.redis.eval(
                 _TOKEN_BUCKET_LUA,
                 1,
                 f"dwe:rate:{queue}",
-                now,
                 rate,
                 capacity,
                 1,
