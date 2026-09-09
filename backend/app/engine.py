@@ -435,6 +435,7 @@ async def reap_expired_leases(session: AsyncSession, *, limit: int = 200) -> int
         )
     )
     now = utcnow()
+    failed_workflow_ids: set[uuid.UUID] = set()
     for task in expired:
         task.lease_owner = None
         task.lease_expires_at = None
@@ -442,6 +443,7 @@ async def reap_expired_leases(session: AsyncSession, *, limit: int = 200) -> int
         if task.attempt >= task.max_attempts:
             task.state = TaskState.DEAD_LETTER.value
             task.finished_at = now
+            failed_workflow_ids.add(task.workflow_id)
             session.add(_event(task, "task.dead_lettered", reason="lease_expired"))
             session.add(
                 OutboxEvent(
@@ -468,6 +470,13 @@ async def reap_expired_leases(session: AsyncSession, *, limit: int = 200) -> int
             session.add(
                 _event(task, "task.lease_expired", retry_delay_seconds=delay, attempt=task.attempt)
             )
+    for workflow_id in failed_workflow_ids:
+        workflow = await session.scalar(
+            select(Workflow).where(Workflow.id == workflow_id).with_for_update()
+        )
+        if workflow is not None:
+            tasks = await _lock_workflow_tasks(session, workflow_id)
+            await _recompute_workflow(session, workflow, tasks)
     await session.commit()
     return len(expired)
 
