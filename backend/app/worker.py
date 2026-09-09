@@ -57,7 +57,9 @@ HANDLERS: dict[str, TaskHandler] = {
 class WorkerRuntime:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.worker_id = self.settings.worker_id or f"{socket.gethostname()}-{os.getpid()}"
+        self.worker_id = self.settings.worker_id or (
+            f"{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+        )
         self.redis: Redis = Redis.from_url(self.settings.redis_url, decode_responses=True)
         self.transport = RedisTransport(self.redis)
         self.guards = QueueGuards(self.redis)

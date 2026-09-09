@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     outbox_poll_seconds: float = Field(default=0.5, gt=0)
     scheduler_poll_seconds: float = Field(default=1.0, gt=0)
     queue_partitions: int = Field(default=4, ge=1, le=64)
-    worker_id: str = "worker-local"
+    worker_id: str | None = None
     worker_queues: str = "default,billing,email,analytics"
     worker_concurrency: int = Field(default=8, ge=1, le=256)
     queue_concurrency_limit: int = Field(default=32, ge=1)
