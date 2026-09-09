@@ -22,7 +22,7 @@ services:
       interval: 2s
       timeout: 2s
       retries: 20
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
@@ -34,7 +34,7 @@ services:
       interval: 2s
       timeout: 2s
       retries: 20
-    ports: ["6379:6379"]
+    ports: ["127.0.0.1:6379:6379"]
     volumes:
       - redis-data:/data
 
@@ -62,7 +62,7 @@ services:
       redis:
         condition: service_healthy
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    ports: ["8000:8000"]
+    ports: ["127.0.0.1:8000:8000"]
 
   worker:
     build:
@@ -81,7 +81,7 @@ services:
       redis:
         condition: service_healthy
     command: ["python", "-m", "app.worker"]
-    ports: ["9101:9101"]
+    ports: ["127.0.0.1:9101:9101"]
 
   scheduler:
     build:
@@ -97,7 +97,7 @@ services:
       redis:
         condition: service_healthy
     command: ["python", "-m", "app.scheduler"]
-    ports: ["9102:9102"]
+    ports: ["127.0.0.1:9102:9102"]
 
   web:
     build:
@@ -105,14 +105,14 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     depends_on: [api]
-    ports: ["3000:3000"]
+    ports: ["127.0.0.1:3000:3000"]
 
   prometheus:
     image: prom/prometheus:v3.5.0
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports: ["9090:9090"]
+    ports: ["127.0.0.1:9090:9090"]
     depends_on: [api, worker, scheduler]
 
   grafana:
@@ -124,7 +124,7 @@ services:
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    ports: ["3001:3000"]
+    ports: ["127.0.0.1:3001:3000"]
     depends_on: [prometheus]
 
   otel-collector:
@@ -132,9 +132,6 @@ services:
     command: ["--config=/etc/otelcol/config.yml"]
     volumes:
       - ./observability/otel-collector.yml:/etc/otelcol/config.yml:ro
-    ports:
-      - "4317:4317"
-      - "4318:4318"
 
 volumes:
   postgres-data:
